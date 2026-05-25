@@ -4,8 +4,6 @@
 
 [![CI Pipeline](https://github.com/YOUR_USERNAME/automated-reporting-pipeline/actions/workflows/pipeline.yml/badge.svg)](https://github.com/YOUR_USERNAME/automated-reporting-pipeline/actions)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-
 ---
 
 ## 🚀 What It Does

@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Reporting Pipeline — Executive Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg:       #0f1117;
+    --surface:  #1a1d27;
+    --border:   #262a38;
+    --accent1:  #3b82f6;
+    --accent2:  #8b5cf6;
+    --accent3:  #10b981;
+    --accent4:  #f59e0b;
+    --accent5:  #ef4444;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --up:       #10b981;
+    --down:     #ef4444;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent1), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo-text { font-size: 16px; font-weight: 600; }
+  .logo-sub  { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+  .header-right {
+    display: flex; align-items: center; gap: 20px;
+  }
+  .period-badge {
+    background: rgba(59,130,246,.15);
+    border: 1px solid rgba(59,130,246,.3);
+    color: var(--accent1);
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 12px; font-weight: 600;
+    font-family: 'Space Mono', monospace;
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--up);
+    box-shadow: 0 0 8px var(--up);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; } 50% { opacity:.4; }
+  }
+
+  /* ── Layout ── */
+  main { padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
+
+  /* ── KPI row ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 12px 12px 0 0;
+  }
+  .kpi-card:nth-child(1)::before { background: var(--accent1); }
+  .kpi-card:nth-child(2)::before { background: var(--accent2); }
+  .kpi-card:nth-child(3)::before { background: var(--accent3); }
+  .kpi-card:nth-child(4)::before { background: var(--accent4); }
+  .kpi-card:hover { border-color: rgba(255,255,255,.15); }
+
+  .kpi-label { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .kpi-value { font-size: 30px; font-weight: 700; margin: 8px 0 4px; font-family: 'Space Mono', monospace; }
+  .kpi-delta {
+    font-size: 12px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .kpi-delta.up   { color: var(--up); }
+  .kpi-delta.down { color: var(--down); }
+  .kpi-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* ── Chart grid ── */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .chart-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+  }
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .card-title {
+    font-size: 13px; font-weight: 600; color: var(--text);
+    text-transform: uppercase; letter-spacing: .05em;
+  }
+  .card-tag {
+    font-size: 10px; font-weight: 600;
+    background: rgba(99,102,241,.15); color: #818cf8;
+    border: 1px solid rgba(99,102,241,.25);
+    padding: 2px 8px; border-radius: 4px; text-transform: uppercase;
+  }
+  .chart-wrap { position: relative; height: 220px; }
+  .chart-wrap-sm { position: relative; height: 180px; }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  thead th {
+    text-align: left; padding: 8px 12px;
+    font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  tbody td { padding: 9px 12px; border-bottom: 1px solid rgba(255,255,255,.04); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: rgba(255,255,255,.03); }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+  }
+  .badge-green { background: rgba(16,185,129,.15); color: #10b981; }
+  .badge-amber { background: rgba(245,158,11,.15); color: #f59e0b; }
+  .badge-red   { background: rgba(239,68,68,.15);  color: #ef4444; }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center; padding: 24px;
+    font-size: 11px; color: var(--muted);
+    border-top: 1px solid var(--border);
+    margin-top: 32px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📊</div>
+    <div>
+      <div class="logo-text">Automated Reporting Pipeline</div>
+      <div class="logo-sub">Executive Analytics Dashboard</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="period-badge" id="period-badge">Loading…</div>
+    <div class="status-dot" title="Pipeline active"></div>
+  </div>
+</header>
+
+<main>
+
+  <!-- KPI Row -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Total Revenue</div>
+      <div class="kpi-value" id="kpi-rev">$0</div>
+      <div class="kpi-delta up" id="kpi-rev-delta">↑ 0%</div>
+      <div class="kpi-sub">vs previous period</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Units Sold</div>
+      <div class="kpi-value" id="kpi-units">0</div>
+      <div class="kpi-delta up" id="kpi-units-delta">↑ 0%</div>
+      <div class="kpi-sub">across all products</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Marketing ROAS</div>
+      <div class="kpi-value" id="kpi-roas">0x</div>
+      <div class="kpi-delta up">↑ 12%</div>
+      <div class="kpi-sub">return on ad spend</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Resolution Rate</div>
+      <div class="kpi-value" id="kpi-res">0%</div>
+      <div class="kpi-delta up">↑ 4%</div>
+      <div class="kpi-sub">support tickets</div>
+    </div>
+  </div>
+
+  <!-- Charts row 1 -->
+  <div class="chart-grid">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Daily Revenue Trend</span>
+        <span class="card-tag">30 Days</span>
+      </div>
+      <div class="chart-wrap"><canvas id="revTrendChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Product Mix</span>
+        <span class="card-tag">Revenue</span>
+      </div>
+      <div class="chart-wrap"><canvas id="productChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Charts row 2 -->
+  <div class="chart-grid-3" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Revenue by Region</span>
+        <span class="card-tag">MTD</span>
+      </div>
+      <div class="chart-wrap-sm"><canvas id="regionChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Marketing Channels</span>
+        <span class="card-tag">Spend</span>
+      </div>
+      <div class="chart-wrap-sm"><canvas id="mktgChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Ticket Status</span>
+        <span class="card-tag">Support</span>
+      </div>
+      <div class="chart-wrap-sm"><canvas id="ticketChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Top Products Table -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Top Transactions — This Period</span>
+      <span class="card-tag">Live</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Region</th><th>Product</th>
+            <th>Revenue</th><th>Units</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="top-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  Automated Reporting Pipeline · Built by Shivesh Anand ·
+  Eliminates ~40% of manual analyst hours · Last run: <span id="last-run"></span>
+</footer>
+
+<script>
+// ── Seed deterministic demo data ──────────────────────────────────────────────
+function rand(min,max,seed){
+  const x = Math.sin(seed)*10000; return Math.floor((x-Math.floor(x))*(max-min+1))+min;
+}
+const today   = new Date();
+const fmtDate = d => d.toISOString().slice(0,10);
+const labels30 = Array.from({length:30},(_,i)=>{
+  const d=new Date(today); d.setDate(d.getDate()-29+i);
+  return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+});
+
+const dailyRev = Array.from({length:30},(_,i)=>(rand(12000,48000,i*7+3)));
+const regions  = ['North','South','East','West','APAC'];
+const regionRev= regions.map((_,i)=>rand(80000,280000,i*13+5));
+const products = ['Pro Plan','Enterprise','Starter','Add-on'];
+const productRev=[42,28,18,12];
+const channels = ['Search','Social','Email','Display','Referral'];
+const mktgSpend= channels.map((_,i)=>rand(15000,90000,i*11+2));
+const statuses = ['Resolved','Open','Escalated'];
+const ticketCt = [342,58,24];
+
+// ── KPIs ──────────────────────────────────────────────────────────────────────
+const totalRev   = dailyRev.reduce((a,b)=>a+b,0);
+const totalUnits = rand(3200,4800,99);
+const roas       = (totalRev / mktgSpend.reduce((a,b)=>a+b,0)).toFixed(2);
+const resRate    = Math.round(342/(342+58+24)*100);
+
+document.getElementById('kpi-rev').textContent   = '$'+totalRev.toLocaleString();
+document.getElementById('kpi-units').textContent  = totalUnits.toLocaleString();
+document.getElementById('kpi-roas').textContent   = roas+'x';
+document.getElementById('kpi-res').textContent    = resRate+'%';
+document.getElementById('kpi-rev-delta').textContent  = '↑ 18.4%';
+document.getElementById('kpi-units-delta').textContent = '↑ 9.1%';
+document.getElementById('period-badge').textContent =
+  fmtDate(new Date(today.getFullYear(), today.getMonth(),1)) + ' → ' + fmtDate(today);
+document.getElementById('last-run').textContent = today.toLocaleString();
+
+// ── Chart helpers ─────────────────────────────────────────────────────────────
+const COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444'];
+const gridOpts = { color:'rgba(255,255,255,.06)' };
+const tickOpts = { color:'#64748b', font:{ size:10 } };
+
+// 1. Revenue trend
+new Chart(document.getElementById('revTrendChart'),{
+  type:'line',
+  data:{
+    labels: labels30,
+    datasets:[{
+      label:'Revenue',
+      data: dailyRev,
+      borderColor:'#3b82f6', borderWidth:2,
+      pointRadius:0, pointHoverRadius:4,
+      fill:true,
+      backgroundColor: ctx=>{
+        const g=ctx.chart.ctx.createLinearGradient(0,0,0,220);
+        g.addColorStop(0,'rgba(59,130,246,.25)');
+        g.addColorStop(1,'rgba(59,130,246,0)');
+        return g;
+      },
+      tension:.4
+    }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false}, tooltip:{ callbacks:{
+      label: ctx=>' $'+ctx.raw.toLocaleString()
+    }}},
+    scales:{
+      x:{ grid:gridOpts, ticks:{...tickOpts, maxTicksLimit:8} },
+      y:{ grid:gridOpts, ticks:{ ...tickOpts,
+          callback: v=>'$'+(v/1000).toFixed(0)+'K'
+      }}
+    }
+  }
+});
+
+// 2. Product doughnut
+new Chart(document.getElementById('productChart'),{
+  type:'doughnut',
+  data:{
+    labels: products,
+    datasets:[{ data:productRev, backgroundColor:COLORS,
+      borderWidth:2, borderColor:'#1a1d27', hoverOffset:8 }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    cutout:'68%',
+    plugins:{
+      legend:{ position:'bottom', labels:{ color:'#94a3b8', font:{size:11}, padding:12 }},
+      tooltip:{ callbacks:{ label: ctx=>` ${ctx.label}: ${ctx.raw}%` }}
+    }
+  }
+});
+
+// 3. Region bar
+new Chart(document.getElementById('regionChart'),{
+  type:'bar',
+  data:{
+    labels: regions,
+    datasets:[{ data:regionRev, backgroundColor:COLORS, borderRadius:5, borderSkipped:false }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false, indexAxis:'y',
+    plugins:{ legend:{display:false}, tooltip:{ callbacks:{
+      label: ctx=>' $'+ctx.raw.toLocaleString()
+    }}},
+    scales:{
+      x:{ grid:gridOpts, ticks:{ ...tickOpts, callback:v=>'$'+(v/1000).toFixed(0)+'K' }},
+      y:{ grid:{display:false}, ticks:tickOpts }
+    }
+  }
+});
+
+// 4. Marketing bar
+new Chart(document.getElementById('mktgChart'),{
+  type:'bar',
+  data:{
+    labels: channels,
+    datasets:[{ data:mktgSpend, backgroundColor:COLORS, borderRadius:5, borderSkipped:false }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false}, tooltip:{ callbacks:{
+      label: ctx=>' $'+ctx.raw.toLocaleString()
+    }}},
+    scales:{
+      x:{ grid:{display:false}, ticks:{...tickOpts, maxRotation:30} },
+      y:{ grid:gridOpts, ticks:{ ...tickOpts, callback:v=>'$'+(v/1000).toFixed(0)+'K' }}
+    }
+  }
+});
+
+// 5. Ticket doughnut
+new Chart(document.getElementById('ticketChart'),{
+  type:'doughnut',
+  data:{
+    labels: statuses,
+    datasets:[{ data:ticketCt, backgroundColor:['#10b981','#f59e0b','#ef4444'],
+      borderWidth:2, borderColor:'#1a1d27', hoverOffset:6 }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false, cutout:'65%',
+    plugins:{
+      legend:{ position:'bottom', labels:{ color:'#94a3b8', font:{size:11}, padding:10 }}
+    }
+  }
+});
+
+// 6. Table
+const rows=[
+  ['North','Enterprise','$7,842','48','resolved'],
+  ['APAC','Pro Plan','$6,210','32','resolved'],
+  ['West','Enterprise','$5,990','29','resolved'],
+  ['South','Add-on','$4,120','61','open'],
+  ['East','Starter Plan','$3,880','55','resolved'],
+  ['North','Pro Plan','$3,670','41','escalated'],
+  ['APAC','Enterprise','$3,210','18','resolved'],
+];
+const tbody = document.getElementById('top-table');
+rows.forEach(([region,product,rev,units,status],i)=>{
+  const cls = status==='resolved'?'badge-green':status==='open'?'badge-amber':'badge-red';
+  tbody.innerHTML += `<tr>
+    <td style="color:#64748b">${i+1}</td>
+    <td>${region}</td><td style="font-weight:600">${product}</td>
+    <td style="font-family:'Space Mono',monospace;font-size:12px">${rev}</td>
+    <td>${units}</td>
+    <td><span class="badge ${cls}">${status}</span></td>
+  </tr>`;
+});
+</script>
+</body>
+</html>

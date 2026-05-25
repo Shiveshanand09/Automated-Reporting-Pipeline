@@ -194,12 +194,4 @@ CALL sp_generate_monthly_report(
 | Testing     | pytest                              |
 | Dashboard   | HTML + Chart.js                     |
 
----
-
-## 📄 License
-
-MIT — see [LICENSE](LICENSE).
-
----
-
 *Built by [Shivesh Anand](https://linkedin.com/in/shiveshanand)*
